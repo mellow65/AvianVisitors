@@ -2478,15 +2478,32 @@
     html += adminCard('disk (birdsongs)', sys.disk_birds ? sys.disk_birds.used_pct + '%' : '-',
       sys.disk_birds ? adminFmtBytes(sys.disk_birds.total_bytes - sys.disk_birds.free_bytes) + ' / ' + adminFmtBytes(sys.disk_birds.total_bytes) : '',
       sys.disk_birds && sys.disk_birds.used_pct > 92 ? 'warn' : '');
+    
+    
+    
     var audio = sys.audio || {}, cards = audio.arecord_l || [];
-    var mic = cards.find ? cards.find(function (c) { return /usb-audio|microphone|mic/i.test(c); }) : null;
+    var mic = cards.find ? cards.find(function (c) { return /usb-audio|microphone|\bmic\b/i.test(c); }) : null;
+    var rtsp = ((sys.conf || {}).values || {}).RTSP_STREAM || '';
+    // Strip any embedded rtsp://user:pass@ credentials before display -
+    // the system page is on the LAN but shouldn't leak stream auth.
+    var rtspSafe = rtsp
+      ? rtsp.split(',').map(function (u) {
+          return u.replace(/^(\w+:\/\/)[^@\/]+@/, '$1');
+        }).join(', ')
+      : '';
     // Without a USB mic, /proc/asound/cards only lists the Pi's HDMI
-    // audio outputs - which aren't an input source. Flag that clearly
-    // rather than showing "audio device: vc4hdmi0" as if it were a mic.
-    html += adminCard('audio device',
-      mic || (cards.length ? 'no microphone attached' : 'no audio devices'),
-      mic ? '' : (cards[0] || ''),
-      mic ? '' : 'warn');
+    // audio outputs - which aren't an input source. If an RTSP source is
+    // configured that's the real audio source, so show that instead of
+    // flagging a "missing" mic that was never meant to be used.
+    html += rtsp
+      ? adminCard('audio device', 'RTSP stream', rtspSafe, '')
+      : adminCard('audio device',
+          mic || (cards.length ? 'no microphone attached' : 'no audio devices'),
+          mic ? '' : (cards[0] || ''),
+          mic ? '' : 'warn');
+    
+    
+    
     html += '</div>';
 
     html += '<h2 class="admin-section-head">services</h2>';
